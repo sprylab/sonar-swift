@@ -33,6 +33,7 @@ import org.xml.sax.SAXException;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -41,9 +42,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class LizardReportParser {
+class LizardReportParser {
 
     private final Number[] FUNCTIONS_DISTRIB_BOTTOM_LIMITS = {1, 2, 4, 6, 8, 10, 12, 20, 30};
+
     private final Number[] FILES_DISTRIB_BOTTOM_LIMITS = {0, 5, 10, 20, 30, 60, 90};
 
     private static final String MEASURE = "measure";
@@ -56,43 +58,40 @@ public class LizardReportParser {
     private static final int CYCLOMATIC_COMPLEXITY_INDEX = 2;
     private static final int FUNCTIONS_INDEX = 3;
 
-    public Map<String, List<Measure>> parseReport(final File xmlFile) {
-        Map<String, List<Measure>> result = null;
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    Map<String, List<Measure>> parseReport(final File xmlFile) {
+        final DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 
+        Map<String, List<Measure>> result = null;
         try {
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document document = builder.parse(xmlFile);
+            final DocumentBuilder builder = factory.newDocumentBuilder();
+            final Document document = builder.parse(xmlFile);
             result = parseFile(document);
-        } catch (final FileNotFoundException e){
+        } catch (final FileNotFoundException e) {
             LoggerFactory.getLogger(getClass()).error("Lizard Report not found {}", xmlFile, e);
-        } catch (final IOException e) {
+        } catch (final IOException | SAXException e) {
             LoggerFactory.getLogger(getClass()).error("Error processing file named {}", xmlFile, e);
         } catch (final ParserConfigurationException e) {
             LoggerFactory.getLogger(getClass()).error("Error parsing file named {}", xmlFile, e);
-        } catch (final SAXException e) {
-            LoggerFactory.getLogger(getClass()).error("Error processing file named {}", xmlFile, e);
         }
 
         return result;
     }
 
-    private Map<String, List<Measure>> parseFile(Document document) {
-        final Map<String, List<Measure>> reportMeasures = new HashMap<String, List<Measure>>();
-        final List<SwiftFunction> functions = new ArrayList<SwiftFunction>();
-
-        NodeList nodeList = document.getElementsByTagName(MEASURE);
+    private Map<String, List<Measure>> parseFile(final Document document) {
+        final Map<String, List<Measure>> reportMeasures = new HashMap<>();
+        final List<SwiftFunction> functions = new ArrayList<>();
+        final NodeList nodeList = document.getElementsByTagName(MEASURE);
 
         for (int i = 0; i < nodeList.getLength(); i++) {
-            Node node = nodeList.item(i);
+            final Node node = nodeList.item(i);
 
             if (node.getNodeType() == Node.ELEMENT_NODE) {
-                Element element = (Element) node;
+                final Element element = (Element) node;
                 if (element.getAttribute(MEASURE_TYPE).equalsIgnoreCase(FILE_MEASURE)) {
-                    NodeList itemList = element.getElementsByTagName(MEASURE_ITEM);
+                    final NodeList itemList = element.getElementsByTagName(MEASURE_ITEM);
                     addComplexityFileMeasures(itemList, reportMeasures);
-                } else if(element.getAttribute(MEASURE_TYPE).equalsIgnoreCase(FUNCTION_MEASURE)) {
-                    NodeList itemList = element.getElementsByTagName(MEASURE_ITEM);
+                } else if (element.getAttribute(MEASURE_TYPE).equalsIgnoreCase(FUNCTION_MEASURE)) {
+                    final NodeList itemList = element.getElementsByTagName(MEASURE_ITEM);
                     collectFunctions(itemList, functions);
                 }
             }
@@ -103,54 +102,58 @@ public class LizardReportParser {
         return reportMeasures;
     }
 
-    private void addComplexityFileMeasures(NodeList itemList, Map<String, List<Measure>> reportMeasures){
+    private void addComplexityFileMeasures(final NodeList itemList, final Map<String, List<Measure>> reportMeasures) {
         for (int i = 0; i < itemList.getLength(); i++) {
-            Node item = itemList.item(i);
+            final Node item = itemList.item(i);
 
             if (item.getNodeType() == Node.ELEMENT_NODE) {
-                Element itemElement = (Element) item;
-                String fileName = itemElement.getAttribute(NAME);
-                NodeList values = itemElement.getElementsByTagName(VALUE);
-                int complexity = Integer.parseInt(values.item(CYCLOMATIC_COMPLEXITY_INDEX).getTextContent());
-                double fileComplexity = Double.parseDouble(values.item(CYCLOMATIC_COMPLEXITY_INDEX).getTextContent());
-                int numberOfFunctions =  Integer.parseInt(values.item(FUNCTIONS_INDEX).getTextContent());
+                final Element itemElement = (Element) item;
+                final String fileName = itemElement.getAttribute(NAME);
+                final NodeList values = itemElement.getElementsByTagName(VALUE);
+                final int complexity = Integer.parseInt(values.item(CYCLOMATIC_COMPLEXITY_INDEX).getTextContent());
+                final double fileComplexity = Double.parseDouble(values.item(CYCLOMATIC_COMPLEXITY_INDEX).getTextContent());
+                final int numberOfFunctions = Integer.parseInt(values.item(FUNCTIONS_INDEX).getTextContent());
 
                 reportMeasures.put(fileName, buildMeasureList(complexity, fileComplexity, numberOfFunctions));
             }
         }
     }
 
-    private List<Measure> buildMeasureList(int complexity, double fileComplexity, int numberOfFunctions){
-        List<Measure> list = new ArrayList<Measure>();
+    private List<Measure> buildMeasureList(final int complexity, final double fileComplexity, final int numberOfFunctions) {
+        final List<Measure> list = new ArrayList<>();
         list.add(new Measure(CoreMetrics.COMPLEXITY).setIntValue(complexity));
         list.add(new Measure(CoreMetrics.FUNCTIONS).setIntValue(numberOfFunctions));
         list.add(new Measure(CoreMetrics.FILE_COMPLEXITY, fileComplexity));
-        RangeDistributionBuilder complexityDistribution = new RangeDistributionBuilder(CoreMetrics.FILE_COMPLEXITY_DISTRIBUTION, FILES_DISTRIB_BOTTOM_LIMITS);
+        final RangeDistributionBuilder complexityDistribution = new RangeDistributionBuilder(CoreMetrics
+                .FILE_COMPLEXITY_DISTRIBUTION,
+                FILES_DISTRIB_BOTTOM_LIMITS);
         complexityDistribution.add(fileComplexity);
         list.add(complexityDistribution.build().setPersistenceMode(PersistenceMode.MEMORY));
+
         return list;
     }
 
-    private void collectFunctions(NodeList itemList, List<SwiftFunction> functions) {
+    private void collectFunctions(final NodeList itemList, final List<SwiftFunction> functions) {
         for (int i = 0; i < itemList.getLength(); i++) {
-            Node item = itemList.item(i);
+            final Node item = itemList.item(i);
             if (item.getNodeType() == Node.ELEMENT_NODE) {
-                Element itemElement = (Element) item;
-                String name = itemElement.getAttribute(NAME);
-                String measure = itemElement.getElementsByTagName(VALUE).item(CYCLOMATIC_COMPLEXITY_INDEX).getTextContent();
+                final Element itemElement = (Element) item;
+                final String name = itemElement.getAttribute(NAME);
+                final String measure = itemElement.getElementsByTagName(VALUE).item(CYCLOMATIC_COMPLEXITY_INDEX).getTextContent();
                 functions.add(new SwiftFunction(name, Integer.parseInt(measure)));
             }
         }
     }
 
-    private void addComplexityFunctionMeasures(Map<String, List<Measure>> reportMeasures, List<SwiftFunction> functions){
-        for (Map.Entry<String, List<Measure>> entry : reportMeasures.entrySet()) {
-
-            RangeDistributionBuilder complexityDistribution = new RangeDistributionBuilder(CoreMetrics.FUNCTION_COMPLEXITY_DISTRIBUTION, FUNCTIONS_DISTRIB_BOTTOM_LIMITS);
+    private void addComplexityFunctionMeasures(final Map<String, List<Measure>> reportMeasures, final List<SwiftFunction>
+            functions) {
+        for (final Map.Entry<String, List<Measure>> entry : reportMeasures.entrySet()) {
+            final RangeDistributionBuilder complexityDistribution = new RangeDistributionBuilder(CoreMetrics
+                    .FUNCTION_COMPLEXITY_DISTRIBUTION, FUNCTIONS_DISTRIB_BOTTOM_LIMITS);
             int count = 0;
             int complexityInFunctions = 0;
 
-            for (SwiftFunction func : functions) {
+            for (final SwiftFunction func : functions) {
                 if (func.getName().contains(entry.getKey())) {
                     complexityDistribution.add(func.getCyclomaticComplexity());
                     count++;
@@ -160,24 +163,26 @@ public class LizardReportParser {
 
             if (count != 0) {
                 double complex = 0;
-                for (Measure m : entry.getValue()){
-                    if (m.getMetric().getKey().equalsIgnoreCase(CoreMetrics.FILE_COMPLEXITY.getKey())){
+                for (final Measure m : entry.getValue()) {
+                    if (m.getMetric().getKey().equalsIgnoreCase(CoreMetrics.FILE_COMPLEXITY.getKey())) {
                         complex = m.getValue();
                         break;
                     }
                 }
 
-                double complexMean = complex/(double)count;
+                double complexMean = complex / (double) count;
                 entry.getValue().addAll(buildFuncionMeasuresList(complexMean, complexityInFunctions, complexityDistribution));
             }
         }
     }
 
-    public List<Measure> buildFuncionMeasuresList(double complexMean, int complexityInFunctions, RangeDistributionBuilder builder){
-        List<Measure> list = new ArrayList<Measure>();
+    private List<Measure> buildFuncionMeasuresList(final double complexMean, final int complexityInFunctions,
+            final RangeDistributionBuilder builder) {
+        final List<Measure> list = new ArrayList<>();
         list.add(new Measure(CoreMetrics.FUNCTION_COMPLEXITY, complexMean));
         list.add(new Measure(CoreMetrics.COMPLEXITY_IN_FUNCTIONS).setIntValue(complexityInFunctions));
         list.add(builder.build().setPersistenceMode(PersistenceMode.MEMORY));
+
         return list;
     }
 
@@ -185,7 +190,7 @@ public class LizardReportParser {
         private String name;
         private int cyclomaticComplexity;
 
-        public SwiftFunction(String name, int cyclomaticComplexity) {
+        SwiftFunction(final String name, final int cyclomaticComplexity) {
             this.name = name;
             this.cyclomaticComplexity = cyclomaticComplexity;
         }
@@ -194,9 +199,8 @@ public class LizardReportParser {
             return name;
         }
 
-        public int getCyclomaticComplexity() {
+        int getCyclomaticComplexity() {
             return cyclomaticComplexity;
         }
-
     }
 }

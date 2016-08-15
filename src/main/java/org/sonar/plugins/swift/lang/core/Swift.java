@@ -20,6 +20,7 @@
 package org.sonar.plugins.swift.lang.core;
 
 import com.google.common.collect.Lists;
+
 import org.apache.commons.lang.StringUtils;
 import org.sonar.api.config.Settings;
 import org.sonar.api.resources.AbstractLanguage;
@@ -33,7 +34,7 @@ public class Swift extends AbstractLanguage {
 
     private Settings settings;
 
-    public Swift(Settings settings) {
+    public Swift(final Settings settings) {
 
         super(KEY, "Swift");
         this.settings = settings;
@@ -41,19 +42,23 @@ public class Swift extends AbstractLanguage {
 
     public String[] getFileSuffixes() {
         String[] suffixes = filterEmptyStrings(settings.getStringArray(SwiftPlugin.FILE_SUFFIXES_KEY));
-        if (suffixes == null || suffixes.length == 0) {
+
+        if (suffixes.length == 0) {
             suffixes = StringUtils.split(SwiftPlugin.FILE_SUFFIXES_DEFVALUE, ",");
         }
+
         return suffixes;
     }
 
-    private String[] filterEmptyStrings(String[] stringArray) {
-        List<String> nonEmptyStrings = Lists.newArrayList();
+    private String[] filterEmptyStrings(final String[] stringArray) {
+        final List<String> nonEmptyStrings = Lists.newArrayList();
+
         for (String string : stringArray) {
             if (StringUtils.isNotBlank(string.trim())) {
                 nonEmptyStrings.add(string.trim());
             }
         }
+
         return nonEmptyStrings.toArray(new String[nonEmptyStrings.size()]);
     }
 }

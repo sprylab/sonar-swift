@@ -22,16 +22,14 @@ package org.sonar.plugins.swift.issues.swiftlint;
 import org.apache.tools.ant.DirectoryScanner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.sonar.api.batch.Sensor;
-import org.sonar.api.batch.SensorContext;
 import org.sonar.api.batch.fs.FileSystem;
-import org.sonar.api.component.ResourcePerspectives;
+import org.sonar.api.batch.sensor.Sensor;
+import org.sonar.api.batch.sensor.SensorContext;
+import org.sonar.api.batch.sensor.SensorDescriptor;
 import org.sonar.api.config.Settings;
-import org.sonar.api.resources.Project;
 import org.sonar.plugins.swift.SwiftPlugin;
-import org.sonar.plugins.swift.lang.core.Swift;
-import java.io.File;
 
+import java.io.File;
 
 public class SwiftLintSensor implements Sensor {
 
@@ -42,30 +40,26 @@ public class SwiftLintSensor implements Sensor {
 
     private final Settings conf;
     private final FileSystem fileSystem;
-    private final ResourcePerspectives resourcePerspectives;
 
-    public SwiftLintSensor(final FileSystem fileSystem, final Settings config, final ResourcePerspectives resourcePerspectives) {
+    public SwiftLintSensor(final FileSystem fileSystem, final Settings config) {
         this.conf = config;
         this.fileSystem = fileSystem;
-        this.resourcePerspectives = resourcePerspectives;
     }
 
     @Override
-    public boolean shouldExecuteOnProject(final Project project) {
-
-        return project.isRoot() && fileSystem.languages().contains(Swift.KEY);
+    public void describe(final SensorDescriptor descriptor) {
+        descriptor.name(SwiftLintSensor.class.getSimpleName());
     }
-    @Override
-    public void analyse(Project module, SensorContext context) {
 
+    @Override
+    public void execute(final SensorContext context) {
         final String projectBaseDir = fileSystem.baseDir().getAbsolutePath();
 
-        SwiftLintReportParser parser = new SwiftLintReportParser(module, context, resourcePerspectives);
+        SwiftLintReportParser parser = new SwiftLintReportParser(context);
         parseReportIn(projectBaseDir, parser);
     }
 
     private void parseReportIn(final String baseDir, final SwiftLintReportParser parser) {
-
         DirectoryScanner scanner = new DirectoryScanner();
         scanner.setIncludes(new String[]{reportPath()});
         scanner.setBasedir(baseDir);
@@ -73,11 +67,10 @@ public class SwiftLintSensor implements Sensor {
         scanner.scan();
         String[] files = scanner.getIncludedFiles();
 
-        for(String filename : files) {
+        for (String filename : files) {
             LOGGER.info("Processing SwiftLint report {}", filename);
             parser.parseReport(new File(filename));
         }
-
     }
 
     private String reportPath() {
@@ -85,7 +78,7 @@ public class SwiftLintSensor implements Sensor {
         if (reportPath == null) {
             reportPath = DEFAULT_REPORT_PATH;
         }
+
         return reportPath;
     }
-
 }

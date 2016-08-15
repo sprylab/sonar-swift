@@ -21,59 +21,40 @@ package org.sonar.plugins.swift.coverage;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.sonar.api.batch.Sensor;
-import org.sonar.api.batch.SensorContext;
-import org.sonar.api.batch.fs.FileSystem;
+import org.sonar.api.batch.sensor.Sensor;
+import org.sonar.api.batch.sensor.SensorContext;
+import org.sonar.api.batch.sensor.SensorDescriptor;
 import org.sonar.api.config.Settings;
-import org.sonar.api.measures.CoverageMeasuresBuilder;
-import org.sonar.api.resources.Project;
-import org.sonar.api.scan.filesystem.PathResolver;
 import org.sonar.plugins.swift.SwiftPlugin;
-import org.sonar.plugins.swift.lang.core.Swift;
 
 import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
-
 
 public final class SwiftCoberturaSensor implements Sensor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SwiftCoberturaSensor.class);
 
     public static final String REPORT_PATTERN_KEY = SwiftPlugin.PROPERTY_PREFIX + ".coverage.reportPattern";
+
     public static final String DEFAULT_REPORT_PATTERN = "sonar-reports/coverage*.xml";
 
     private final ReportFilesFinder reportFilesFinder;
 
-    private final Settings settings;
-    private final FileSystem fileSystem;
-    private final PathResolver pathResolver;
-    private Project project;
-
-    public SwiftCoberturaSensor(final FileSystem fileSystem, final PathResolver pathResolver, final Settings settings) {
-
-        this.settings = settings;
-        this.fileSystem = fileSystem;
-        this.pathResolver = pathResolver;
-
+    public SwiftCoberturaSensor(final Settings settings) {
         reportFilesFinder = new ReportFilesFinder(settings, REPORT_PATTERN_KEY, DEFAULT_REPORT_PATTERN);
     }
 
-    public boolean shouldExecuteOnProject(final Project project) {
-
-        this.project = project;
-
-        return project.isRoot() && fileSystem.languages().contains(Swift.KEY);
+    @Override
+    public void describe(final SensorDescriptor descriptor) {
+        descriptor.name(SwiftCoberturaSensor.class.getSimpleName());
     }
 
-    public void analyse(final Project project, final SensorContext context) {
-
-
-        final String projectBaseDir = fileSystem.baseDir().getPath();
+    @Override
+    public void execute(final SensorContext context) {
+        final String projectBaseDir = context.fileSystem().baseDir().getPath();
 
         for (final File report : reportFilesFinder.reportsIn(projectBaseDir)) {
             LOGGER.info("Processing coverage report {}", report);
-            CoberturaReportParser.parseReport(report, fileSystem, project, context);
+            CoberturaReportParser.parseReport(report, context);
         }
     }
 }

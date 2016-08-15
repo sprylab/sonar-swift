@@ -43,10 +43,8 @@ public class SwiftProfile extends ProfileDefinition {
         this.swiftLintProfileImporter = swiftLintProfileImporter;
     }
 
-
     @Override
     public RulesProfile createProfile(ValidationMessages messages) {
-
         LOGGER.info("Creating Swift Profile");
 
         Reader config = null;

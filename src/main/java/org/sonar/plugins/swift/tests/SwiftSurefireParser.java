@@ -20,127 +20,163 @@
 package org.sonar.plugins.swift.tests;
 
 import com.google.common.collect.ImmutableList;
+
 import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.sonar.api.batch.SensorContext;
-import org.sonar.api.batch.fs.FileSystem;
 import org.sonar.api.batch.fs.InputFile;
-import org.sonar.api.component.ResourcePerspectives;
+import org.sonar.api.batch.sensor.SensorContext;
 import org.sonar.api.measures.CoreMetrics;
-import org.sonar.api.measures.Measure;
 import org.sonar.api.measures.Metric;
-import org.sonar.api.resources.Project;
-import org.sonar.api.resources.Qualifiers;
-import org.sonar.api.resources.Resource;
-import org.sonar.api.utils.ParsingUtils;
+import org.sonar.api.utils.MessageException;
 import org.sonar.api.utils.StaxParser;
-import org.sonar.api.utils.XmlParserException;
 import org.sonar.plugins.surefire.TestCaseDetails;
 import org.sonar.plugins.surefire.TestSuiteParser;
 import org.sonar.plugins.surefire.TestSuiteReport;
 
 import javax.xml.transform.TransformerException;
+
 import java.io.File;
 import java.io.FilenameFilter;
+import java.io.Serializable;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 class SwiftSurefireParser {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SwiftSurefireParser.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SwiftSurefireParser.class);
 
-    private final Project project;
-    private final FileSystem fileSystem;
-    private final  ResourcePerspectives resourcePerspectives;
     private final SensorContext context;
 
-    public SwiftSurefireParser(Project project, FileSystem fileSystem, ResourcePerspectives resourcePerspectives, SensorContext context) {
-        this.project = project;
-        this.fileSystem = fileSystem;
-        this.resourcePerspectives = resourcePerspectives;
+    SwiftSurefireParser(final SensorContext context) {
         this.context = context;
     }
 
-    public void collect(File reportsDir) {
+    void collect(final File reportsDir) {
+        final File[] xmlFiles = getReports(reportsDir);
 
-        File[] xmlFiles = getReports(reportsDir);
-
-        if (xmlFiles.length == 0) {
-            insertZeroWhenNoReports(project, context);
-        } else {
-            parseFiles(context, xmlFiles);
+        if (xmlFiles.length > 0) {
+            parseFiles(xmlFiles);
         }
     }
 
-    private File[] getReports(File dir) {
-
+    private File[] getReports(final File dir) {
         if (dir == null || !dir.isDirectory() || !dir.exists()) {
             return new File[0];
         }
 
         return dir.listFiles(new FilenameFilter() {
-            public boolean accept(File dir, String name) {
+            public boolean accept(final File dir, final String name) {
                 // .junit is for Fastlane support
                 return (name.startsWith("TEST") && name.endsWith(".xml")) || (name.endsWith(".junit"));
             }
         });
     }
 
-    private void insertZeroWhenNoReports(Project pom, SensorContext context) {
-
-        context.saveMeasure(CoreMetrics.TESTS, 0.0);
-    }
-
-    private void parseFiles(SensorContext context, File[] reports) {
-
-        Set<TestSuiteReport> analyzedReports = new HashSet<TestSuiteReport>();
+    private void parseFiles(final File[] reports) {
+        final Set<TestSuiteReport> analyzedReports = new HashSet<>();
 
         try {
-
-            for (File report : reports) {
-                TestSuiteParser parserHandler = new TestSuiteParser();
-                StaxParser parser = new StaxParser(parserHandler, false);
+            for (final File report : reports) {
+                final TestSuiteParser parserHandler = new TestSuiteParser();
+                final StaxParser parser = new StaxParser(parserHandler, false);
                 parser.parse(report);
 
-                for (TestSuiteReport fileReport : parserHandler.getParsedReports()) {
-
-
-                    if ( !fileReport.isValid() || analyzedReports.contains(fileReport)) {
+                for (final TestSuiteReport fileReport : parserHandler.getParsedReports()) {
+                    if (!fileReport.isValid() || analyzedReports.contains(fileReport)) {
                         continue;
                     }
 
                     if (fileReport.getTests() > 0) {
-                        double testsCount = fileReport.getTests() - fileReport.getSkipped();
-                        saveClassMeasure(fileReport, CoreMetrics.SKIPPED_TESTS, fileReport.getSkipped());
-                        saveClassMeasure(fileReport, CoreMetrics.TESTS, testsCount);
-                        saveClassMeasure(fileReport, CoreMetrics.TEST_ERRORS, fileReport.getErrors());
-                        saveClassMeasure(fileReport, CoreMetrics.TEST_FAILURES, fileReport.getFailures());
-                        saveClassMeasure(fileReport, CoreMetrics.TEST_EXECUTION_TIME, fileReport.getTimeMS());
-                        double passedTests = testsCount - fileReport.getErrors() - fileReport.getFailures();
+                        final int testsCount = fileReport.getTests() - fileReport.getSkipped();
+
+                        // Skipped Unit Tests
+                        saveClassMeasure(fileReport, new Metric.Builder(CoreMetrics.SKIPPED_TESTS_KEY, "Skipped Unit Tests",
+                                Metric.ValueType.INT)
+                                .setDescription("Number of skipped unit tests")
+                                .setDirection(Metric.DIRECTION_WORST)
+                                .setQualitative(true)
+                                .setDomain(CoreMetrics.DOMAIN_COVERAGE)
+                                .setBestValue(0.0)
+                                .setOptimizedBestValue(true)
+                                .create(), fileReport.getSkipped());
+
+                        // Unit Tests
+                        saveClassMeasure(fileReport, new Metric.Builder(CoreMetrics.TESTS_KEY, "Unit Tests", Metric.ValueType.INT)
+                                .setDescription("Number of unit tests")
+                                .setDirection(Metric.DIRECTION_WORST)
+                                .setQualitative(false)
+                                .setDomain(CoreMetrics.DOMAIN_COVERAGE)
+                                .create(), testsCount);
+
+                        // Unit Test Errors
+                        saveClassMeasure(fileReport, new Metric.Builder(CoreMetrics.TEST_ERRORS_KEY, "Unit Test Errors", Metric
+                                .ValueType.INT)
+                                .setDescription("Number of unit test errors")
+                                .setDirection(Metric.DIRECTION_WORST)
+                                .setQualitative(true)
+                                .setDomain(CoreMetrics.DOMAIN_COVERAGE)
+                                .setBestValue(0.0)
+                                .setOptimizedBestValue(true)
+                                .create(), fileReport.getErrors());
+
+                        // Unit Test Failures
+                        saveClassMeasure(fileReport, new Metric.Builder(CoreMetrics.TEST_FAILURES_KEY, "Unit Test Failures",
+                                Metric.ValueType.INT)
+                                .setDescription("Number of unit test failures")
+                                .setDirection(Metric.DIRECTION_WORST)
+                                .setQualitative(true)
+                                .setDomain(CoreMetrics.DOMAIN_COVERAGE)
+                                .setBestValue(0.0)
+                                .setOptimizedBestValue(true)
+                                .create(), fileReport.getFailures());
+
+                        // Unit Test Duration
+                        saveClassMeasure(fileReport, new Metric.Builder(CoreMetrics.TEST_EXECUTION_TIME_KEY, "Unit Test " +
+                                "Duration", Metric.ValueType.MILLISEC)
+                                .setDescription("Execution duration of unit tests")
+                                .setDirection(Metric.DIRECTION_WORST)
+                                .setQualitative(false)
+                                .setDomain(CoreMetrics.DOMAIN_COVERAGE)
+                                .create(), (long) fileReport.getTimeMS());
+
+                        final int passedTests = testsCount - fileReport.getErrors() - fileReport.getFailures();
                         if (testsCount > 0) {
-                            double percentage = passedTests * 100d / testsCount;
-                            saveClassMeasure(fileReport, CoreMetrics.TEST_SUCCESS_DENSITY, ParsingUtils.scaleValue(percentage));
+                            double percentage = passedTests * 100D / testsCount;
+
+                            // Test Success (%)
+                            final Metric<Serializable> metric = new Metric.Builder(CoreMetrics.TEST_SUCCESS_DENSITY_KEY, "Unit " +
+                                    "Test Success (%)",
+                                    Metric.ValueType.PERCENT)
+                                    .setDescription("Density of successful unit tests")
+                                    .setDirection(Metric.DIRECTION_BETTER)
+                                    .setQualitative(true)
+                                    .setDomain(CoreMetrics.DOMAIN_COVERAGE)
+                                    .setWorstValue(0.0)
+                                    .setBestValue(100.0)
+                                    .setOptimizedBestValue(true)
+                                    .create();
+
+                            saveClassMeasure(fileReport, metric, percentage);
                         }
+
                         saveTestsDetails(fileReport);
                         analyzedReports.add(fileReport);
                     }
                 }
             }
-
-        } catch (Exception e) {
-            throw new XmlParserException("Cannot parse surefire reports", e);
+        } catch (final Exception e) {
+            throw MessageException.of("Cannot parse surefire reports", e);
         }
     }
 
-    private void saveTestsDetails(TestSuiteReport fileReport) throws TransformerException {
+    private void saveTestsDetails(final TestSuiteReport fileReport) throws TransformerException {
+        final StringBuilder testCaseDetails = new StringBuilder(256);
+        final List<TestCaseDetails> details = fileReport.getDetails();
 
-        StringBuilder testCaseDetails = new StringBuilder(256);
         testCaseDetails.append("<tests-details>");
-        List<TestCaseDetails> details = fileReport.getDetails();
-        for (TestCaseDetails detail : details) {
+        for (final TestCaseDetails detail : details) {
             testCaseDetails.append("<testcase status=\"").append(detail.getStatus())
                     .append("\" time=\"").append(detail.getTimeMS())
                     .append("\" name=\"").append(detail.getName()).append("\"");
@@ -156,25 +192,41 @@ class SwiftSurefireParser {
             }
         }
         testCaseDetails.append("</tests-details>");
-        context.saveMeasure(getUnitTestResource(fileReport.getClassKey()), new Measure(CoreMetrics.TEST_DATA, testCaseDetails.toString()));
-    }
 
-    private void saveClassMeasure(TestSuiteReport fileReport, Metric metric, double value) {
+        final InputFile inputFile = getUnitTestResource(fileReport.getClassKey());
+        if (inputFile != null && inputFile.file().exists()) {
+            final Metric<Serializable> metric = new Metric.Builder(CoreMetrics.TEST_DATA_KEY, "Unit Test Details", Metric.ValueType
+                    .DATA).setDescription("Unit tests details")
+                    .setDirection(Metric.DIRECTION_WORST)
+                    .setDomain(CoreMetrics.DOMAIN_COVERAGE)
+                    .create();
 
-        if ( !Double.isNaN(value)) {
-
-            context.saveMeasure(getUnitTestResource(fileReport.getClassKey()), metric, value);
-
+            context.newMeasure()
+                    .forMetric(metric)
+                    .on(inputFile)
+                    .withValue(testCaseDetails.toString())
+                    .save();
         }
     }
 
-    public Resource getUnitTestResource(String classname) {
+    private void saveClassMeasure(final TestSuiteReport fileReport, final Metric<Serializable> metric, final Serializable value) {
+        final InputFile inputFile = getUnitTestResource(fileReport.getClassKey());
 
-        String fileName = classname.replace('.', '/') + ".swift";
+        if (inputFile != null && inputFile.file().exists()) {
+            context.newMeasure()
+                    .forMetric(metric)
+                    .on(inputFile)
+                    .withValue(value)
+                    .save();
+        }
+    }
+
+    private InputFile getUnitTestResource(final String classname) {
+        final String fileName = classname.replace('.', '/') + ".swift";
 
         File file = new File(fileName);
         if (!file.isAbsolute()) {
-            file = new File(fileSystem.baseDir(), fileName);
+            file = new File(context.fileSystem().baseDir(), fileName);
         }
 
         /*
@@ -182,12 +234,12 @@ class SwiftSurefireParser {
          * wasn't found in the root.
          */
         if (!file.isFile() || !file.exists()) {
-            List<File> files = ImmutableList.copyOf(fileSystem.files(fileSystem.predicates().and(
-                    fileSystem.predicates().hasType(InputFile.Type.TEST),
-                    fileSystem.predicates().matchesPathPattern("**/" + fileName))));
+            final List<File> files = ImmutableList.copyOf(context.fileSystem().files(context.fileSystem().predicates().and(
+                    context.fileSystem().predicates().hasType(InputFile.Type.TEST),
+                    context.fileSystem().predicates().matchesPathPattern("**/" + fileName))));
 
             if (files.isEmpty()) {
-                LOG.info("Unable to locate test source file {}", fileName);
+                LOGGER.debug("Unable to locate test source file {}", fileName);
             } else {
                 /*
                  * Lazily get the first file, since we wouldn't be able to determine the correct one from just the
@@ -197,8 +249,6 @@ class SwiftSurefireParser {
             }
         }
 
-        org.sonar.api.resources.File sonarFile = org.sonar.api.resources.File.fromIOFile(file, project);
-        sonarFile.setQualifier(Qualifiers.UNIT_TEST_FILE);
-        return sonarFile;
+        return context.fileSystem().inputFile(context.fileSystem().predicates().hasPath(file.getPath()));
     }
 }

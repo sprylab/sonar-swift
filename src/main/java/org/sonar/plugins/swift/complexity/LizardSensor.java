@@ -20,6 +20,7 @@
 
 package org.sonar.plugins.swift.complexity;
 
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sonar.api.batch.Sensor;
 import org.sonar.api.batch.SensorContext;
@@ -36,11 +37,14 @@ import java.util.Map;
 
 public class LizardSensor implements Sensor {
 
-    public static final String REPORT_PATH_KEY = SwiftPlugin.PROPERTY_PREFIX
-            + ".lizard.report";
+    private static final Logger LOGGER = LoggerFactory.getLogger(LizardSensor.class);
+
+    public static final String REPORT_PATH_KEY = SwiftPlugin.PROPERTY_PREFIX + ".lizard.report";
+
     public static final String DEFAULT_REPORT_PATH = "sonar-reports/lizard-report.xml";
 
     private final Settings conf;
+
     private final FileSystem fileSystem;
 
     public LizardSensor(final FileSystem moduleFileSystem, final Settings config) {
@@ -55,17 +59,18 @@ public class LizardSensor implements Sensor {
 
     @Override
     public void analyse(Project project, SensorContext sensorContext) {
-
         final String projectBaseDir = fileSystem.baseDir().getPath();
         Map<String, List<Measure>> measures = parseReportsIn(projectBaseDir, new LizardReportParser());
-        LoggerFactory.getLogger(getClass()).info("Saving results of complexity analysis");
-        new LizardMeasurePersistor(project, sensorContext, fileSystem).saveMeasures(measures);
+
+        LOGGER.info("{} Saving results of complexity analysis", LizardSensor.class.getSimpleName());
+        new LizardMeasurePersistor(sensorContext).saveMeasures(measures);
     }
 
     private Map<String, List<Measure>> parseReportsIn(final String baseDir, LizardReportParser parser) {
         final StringBuilder reportFileName = new StringBuilder(baseDir);
         reportFileName.append("/").append(reportPath());
-        LoggerFactory.getLogger(getClass()).info("Processing complexity report ");
+
+        LOGGER.info("{} Processing complexity report", LizardSensor.class.getSimpleName());
         return parser.parseReport(new File(reportFileName.toString()));
     }
 
@@ -74,6 +79,7 @@ public class LizardSensor implements Sensor {
         if (reportPath == null) {
             reportPath = DEFAULT_REPORT_PATH;
         }
+
         return reportPath;
     }
 }

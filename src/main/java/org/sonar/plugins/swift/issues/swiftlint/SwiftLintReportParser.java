@@ -22,90 +22,71 @@ package org.sonar.plugins.swift.issues.swiftlint;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.sonar.api.batch.SensorContext;
-import org.sonar.api.component.ResourcePerspectives;
-import org.sonar.api.issue.Issuable;
-import org.sonar.api.issue.Issue;
-import org.sonar.api.resources.Project;
+import org.sonar.api.batch.fs.InputFile;
+import org.sonar.api.batch.sensor.SensorContext;
+import org.sonar.api.batch.sensor.issue.internal.DefaultIssueLocation;
 import org.sonar.api.rule.RuleKey;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class SwiftLintReportParser {
+class SwiftLintReportParser {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SwiftLintReportParser.class);
 
-    private final Project project;
     private final SensorContext context;
-    private final ResourcePerspectives resourcePerspectives;
 
-    public SwiftLintReportParser(final Project project, final SensorContext context, final ResourcePerspectives resourcePerspectives) {
-        this.project = project;
+    SwiftLintReportParser(final SensorContext context) {
         this.context = context;
-        this.resourcePerspectives = resourcePerspectives;
     }
 
-    public void parseReport(File reportFile) {
-
+    void parseReport(File reportFile) {
+        FileReader fr = null;
+        BufferedReader br = null;
+        
         try {
             // Read and parse report
-            FileReader fr = new FileReader(reportFile);
+            fr = new FileReader(reportFile);
+            br = new BufferedReader(fr);
 
-            BufferedReader br = new BufferedReader(fr);
             String line;
             while ((line = br.readLine()) != null) {
                 recordIssue(line);
-
             }
+        } catch (final IOException e) {
+            LOGGER.error("Failed to parse SwiftLint report file", e);
+        } finally {
             IOUtils.closeQuietly(br);
             IOUtils.closeQuietly(fr);
-
-        } catch (FileNotFoundException e) {
-            LOGGER.error("Failed to parse SwiftLint report file", e);
-        } catch (IOException e) {
-            LOGGER.error("Failed to parse SwiftLint report file", e);
         }
-
     }
 
     private void recordIssue(final String line) {
-
-
         Pattern pattern = Pattern.compile("(.*.swift):(\\w+):?(\\w+)?: (warning|error): (.*) \\((\\w+)");
+
         Matcher matcher = pattern.matcher(line);
         while (matcher.find()) {
-            String filePath =  matcher.group(1);
-            int lineNum = Integer.parseInt(matcher.group(2));
-            String message = matcher.group(5);
-            String ruleId = matcher.group(6);
+            final String filePath = matcher.group(1);
+            final int lineNum = Integer.parseInt(matcher.group(2));
+            final String message = matcher.group(5);
+            final String ruleId = matcher.group(6);
 
-            org.sonar.api.resources.File resource = org.sonar.api.resources.File.fromIOFile(new File(filePath), project);
+            try {
+                // get indexed file from context
+                final InputFile inputFile = context.fileSystem().inputFile(context.fileSystem().predicates().hasPath(filePath));
 
-            Issuable issuable = resourcePerspectives.as(Issuable.class, resource);
-
-            if (issuable != null) {
-                Issue issue = issuable.newIssueBuilder()
-                        .ruleKey(RuleKey.of(SwiftLintRulesDefinition.REPOSITORY_KEY, ruleId))
-                        .line(lineNum)
-                        .message(message)
-                        .build();
-
-                try {
-                    issuable.addIssue(issue);
-                } catch (Exception e) {
-                    // Unable to add issue : probably because does not exist in the repository
-                    LOGGER.warn(e.getMessage());
-                }
-
-
-
-
+                // save new issue
+                context.newIssue()
+                        .at(new DefaultIssueLocation().on(inputFile).message(message).at(inputFile.selectLine(lineNum)))
+                        .forRule(RuleKey.of(SwiftLintRulesDefinition.REPOSITORY_KEY, ruleId))
+                        .save();
+            } catch (final Exception e) {
+                LOGGER.error(e.getMessage(), e);
             }
-
         }
-
     }
-
 }

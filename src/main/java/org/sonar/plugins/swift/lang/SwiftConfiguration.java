@@ -19,7 +19,7 @@
  */
 package org.sonar.plugins.swift.lang;
 
-import org.sonar.squid.api.SquidConfiguration;
+import org.sonar.squidbridge.api.SquidConfiguration;
 
 import java.nio.charset.Charset;
 

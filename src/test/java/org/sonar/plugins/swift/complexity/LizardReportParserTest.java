@@ -181,7 +181,5 @@ public class LizardReportParserTest {
 
         Map<String, List<Measure>> report = parser.parseReport(incorrectFile);
         assertNull("report is not null", report);
-
     }
-
 }

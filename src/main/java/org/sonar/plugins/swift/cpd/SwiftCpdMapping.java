@@ -20,10 +20,10 @@
 package org.sonar.plugins.swift.cpd;
 
 import net.sourceforge.pmd.cpd.Tokenizer;
+
 import org.sonar.api.batch.AbstractCpdMapping;
 import org.sonar.api.batch.fs.FileSystem;
 import org.sonar.api.resources.Language;
-import org.sonar.api.resources.ProjectFileSystem;
 import org.sonar.plugins.swift.lang.core.Swift;
 
 import java.nio.charset.Charset;

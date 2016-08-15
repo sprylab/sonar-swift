@@ -46,7 +46,7 @@ public enum SwiftKeyword implements TokenType {
     TYPEALIAS("typealias"),
     VAR("var"),
 
-    // Statments
+    // Statements
     BREAK("break"),
     CASE("case"),
     CONTINUE("continue"),
@@ -101,7 +101,7 @@ public enum SwiftKeyword implements TokenType {
     WILL_SET("willSet"),
 
     TRUE("true"),
-    FALSE("true");
+    FALSE("false");
 
     private final String value;
 

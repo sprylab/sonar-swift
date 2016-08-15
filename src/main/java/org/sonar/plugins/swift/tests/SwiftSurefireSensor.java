@@ -21,69 +21,57 @@ package org.sonar.plugins.swift.tests;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.sonar.api.batch.CoverageExtension;
-import org.sonar.api.batch.DependsUpon;
-import org.sonar.api.batch.Sensor;
-import org.sonar.api.batch.SensorContext;
-import org.sonar.api.batch.fs.FileSystem;
-import org.sonar.api.component.ResourcePerspectives;
+import org.sonar.api.batch.sensor.Sensor;
+import org.sonar.api.batch.sensor.SensorContext;
+import org.sonar.api.batch.sensor.SensorDescriptor;
 import org.sonar.api.config.Settings;
-import org.sonar.api.resources.Project;
-import org.sonar.plugins.swift.lang.core.Swift;
 
 import java.io.File;
 
 public class SwiftSurefireSensor implements Sensor {
 
     private static final Logger LOG = LoggerFactory.getLogger(SwiftSurefireSensor.class);
-    public static final String REPORT_PATH_KEY = "sonar.junit.reportsPath";
-    public static final String DEFAULT_REPORT_PATH = "sonar-reports/";
+    private static final String REPORT_PATH_KEY = "sonar.junit.reportsPath";
+    private static final String DEFAULT_REPORT_PATH = "sonar-reports/";
 
     private final Settings settings;
-    private final FileSystem fileSystem;
-    private final ResourcePerspectives resourcePerspectives;
 
-
-    public SwiftSurefireSensor(final FileSystem fileSystem, final Settings config, final ResourcePerspectives resourcePerspectives) {
+    public SwiftSurefireSensor(final Settings config) {
         this.settings = config;
-        this.fileSystem = fileSystem;
-        this.resourcePerspectives = resourcePerspectives;
     }
 
-    @DependsUpon
-    public Class<?> dependsUponCoverageSensors() {
-        return CoverageExtension.class;
+    @Override
+    public void describe(final SensorDescriptor descriptor) {
+        descriptor.name(SwiftSurefireSensor.class.getSimpleName());
     }
 
-    public boolean shouldExecuteOnProject(Project project) {
-
-        return project.isRoot() && fileSystem.hasFiles(fileSystem.predicates().hasLanguage(Swift.KEY));
-    }
-
-    public void analyse(Project project, SensorContext context) {
-
+    @Override
+    public void execute(final SensorContext context) {
     /*
         GitHub Issue #50
         Formerly we used SurefireUtils.getReportsDirectory(project). It seems that is this one:
-        http://grepcode.com/file/repo1.maven.org/maven2/org.codehaus.sonar.plugins/sonar-surefire-plugin/3.3.2/org/sonar/plugins/surefire/api/SurefireUtils.java?av=f#34
+        http://grepcode.com/file/repo1.maven.org/maven2/org.codehaus.sonar
+        .plugins/sonar-surefire-plugin/3.3.2/org/sonar/plugins/surefire/api/SurefireUtils.java?av=f#34
         However it turns out that the Java plugin contains its own version of SurefireUtils
         that is very different (and does not contain a matching method).
-        That seems to be this one: http://svn.codehaus.org/sonar-plugins/tags/sonar-groovy-plugin-0.5/src/main/java/org/sonar/plugins/groovy/surefire/SurefireSensor.java
+        That seems to be this one: http://svn.codehaus
+        .org/sonar-plugins/tags/sonar-groovy-plugin-0.5/src/main/java/org/sonar/plugins/groovy/surefire/SurefireSensor.java
 
         The result is as follows:
 
         1.  At runtime getReportsDirectory(project) fails if you have the Java plugin installed
-        2.  At build time the new getReportsDirectory(project,settings) because I guess something in the build chain doesn't know about the Java plugin version
+        2.  At build time the new getReportsDirectory(project,settings) because I guess something in the build chain doesn't know
+         about the Java plugin version
 
         So the implementation here reaches into the project properties and pulls the path out by itself.
      */
 
-        collect(project, context, new File(reportPath()));
+        collect(context, new File(reportPath()));
     }
 
-    protected void collect(Project project, SensorContext context, File reportsDir) {
+    private void collect(SensorContext context, File reportsDir) {
         LOG.info("parsing {}", reportsDir);
-        SwiftSurefireParser parser = new SwiftSurefireParser(project, fileSystem, resourcePerspectives, context);
+        SwiftSurefireParser parser = new SwiftSurefireParser(context);
         parser.collect(reportsDir);
     }
 
@@ -97,7 +85,7 @@ public class SwiftSurefireSensor implements Sensor {
         if (reportPath == null) {
             reportPath = DEFAULT_REPORT_PATH;
         }
+
         return reportPath;
     }
-
 }

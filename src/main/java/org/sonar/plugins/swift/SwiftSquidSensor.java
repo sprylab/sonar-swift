@@ -21,22 +21,22 @@ package org.sonar.plugins.swift;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+
+import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.sonar.api.batch.Sensor;
 import org.sonar.api.batch.SensorContext;
 import org.sonar.api.batch.fs.FilePredicate;
 import org.sonar.api.batch.fs.FileSystem;
 import org.sonar.api.batch.fs.InputFile;
+import org.sonar.api.batch.fs.internal.DefaultInputFile;
 import org.sonar.api.batch.rule.CheckFactory;
 import org.sonar.api.batch.rule.Checks;
-import org.sonar.api.checks.AnnotationCheckFactory;
 import org.sonar.api.component.ResourcePerspectives;
 import org.sonar.api.issue.Issuable;
 import org.sonar.api.measures.CoreMetrics;
-import org.sonar.api.measures.PersistenceMode;
-import org.sonar.api.measures.RangeDistributionBuilder;
-import org.sonar.api.profiles.RulesProfile;
 import org.sonar.api.resources.Project;
-import org.sonar.api.resources.Resource;
 import org.sonar.api.rule.RuleKey;
 import org.sonar.api.scan.filesystem.PathResolver;
 import org.sonar.plugins.swift.lang.SwiftAstScanner;
@@ -50,11 +50,11 @@ import org.sonar.squidbridge.SquidAstVisitor;
 import org.sonar.squidbridge.api.CheckMessage;
 import org.sonar.squidbridge.api.SourceCode;
 import org.sonar.squidbridge.api.SourceFile;
-import org.sonar.squidbridge.api.SourceFunction;
 import org.sonar.squidbridge.checks.SquidCheck;
-import org.sonar.squidbridge.indexer.QueryByParent;
 import org.sonar.squidbridge.indexer.QueryByType;
 
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -62,43 +62,37 @@ import java.util.Locale;
 
 public class SwiftSquidSensor implements Sensor {
 
-    private final Number[] FUNCTIONS_DISTRIB_BOTTOM_LIMITS = {1, 2, 4, 6, 8, 10, 12, 20, 30};
-    private final Number[] FILES_DISTRIB_BOTTOM_LIMITS = {0, 5, 10, 20, 30, 60, 90};
-
-    private final AnnotationCheckFactory annotationCheckFactory;
+    private static final Logger LOGGER = LoggerFactory.getLogger(SwiftSquidSensor.class);
     private final FileSystem fileSystem;
     private final PathResolver pathResolver;
     private final ResourcePerspectives resourcePerspectives;
     private final Checks<SquidCheck<SwiftGrammar>> checks;
     private final FilePredicate mainFilePredicates;
-
-    private Project project;
     private SensorContext context;
-    private AstScanner<SwiftGrammar> scanner;
 
-    public SwiftSquidSensor(RulesProfile profile, FileSystem fileSystem, PathResolver pathResolver, ResourcePerspectives resourcePerspectives, CheckFactory checkFactory) {
+    public SwiftSquidSensor(FileSystem fileSystem, PathResolver pathResolver, ResourcePerspectives
+            resourcePerspectives, CheckFactory checkFactory) {
 
-        this.annotationCheckFactory = AnnotationCheckFactory.create(profile, CheckList.REPOSITORY_KEY, CheckList.getChecks());
         this.fileSystem = fileSystem;
         this.pathResolver = pathResolver;
         this.resourcePerspectives = resourcePerspectives;
-        this.checks = checkFactory.<SquidCheck<SwiftGrammar>>create(CheckList.REPOSITORY_KEY).addAnnotatedChecks(CheckList.getChecks());
-        this.mainFilePredicates = fileSystem.predicates().and(fileSystem.predicates().hasLanguage(Swift.KEY), fileSystem.predicates().hasType(InputFile.Type.MAIN));
+        this.checks = checkFactory.<SquidCheck<SwiftGrammar>>create(CheckList.REPOSITORY_KEY).addAnnotatedChecks(CheckList
+                .getChecks());
+        this.mainFilePredicates = fileSystem.predicates()
+                .and(fileSystem.predicates().hasLanguage(Swift.KEY), fileSystem.predicates().hasType(InputFile.Type.MAIN));
     }
 
     public boolean shouldExecuteOnProject(Project project) {
-
         return project.isRoot() && fileSystem.hasFiles(fileSystem.predicates().hasLanguage(Swift.KEY));
     }
 
     public void analyse(Project project, SensorContext context) {
-
-        this.project = project;
         this.context = context;
 
         List<SquidAstVisitor<SwiftGrammar>> visitors = Lists.<SquidAstVisitor<SwiftGrammar>>newArrayList(checks.all());
-        AstScanner<SwiftGrammar> scanner = SwiftAstScanner.create(createConfiguration(), visitors.toArray(new SquidAstVisitor[visitors.size()]));
-
+        AstScanner<SwiftGrammar> scanner = SwiftAstScanner.create(createConfiguration(), visitors.toArray(new
+                SquidAstVisitor[visitors
+                .size()]));
 
         scanner.scanFiles(ImmutableList.copyOf(fileSystem.files(mainFilePredicates)));
 
@@ -107,12 +101,10 @@ public class SwiftSquidSensor implements Sensor {
     }
 
     private SwiftConfiguration createConfiguration() {
-
         return new SwiftConfiguration(fileSystem.encoding());
     }
 
     private void save(Collection<SourceCode> squidSourceFiles) {
-
         for (SourceCode squidSourceFile : squidSourceFiles) {
             SourceFile squidFile = (SourceFile) squidSourceFile;
 
@@ -125,7 +117,6 @@ public class SwiftSquidSensor implements Sensor {
     }
 
     private void saveMeasures(InputFile inputFile, SourceFile squidFile) {
-
         context.saveMeasure(inputFile, CoreMetrics.FILES, squidFile.getDouble(SwiftMetric.FILES));
         context.saveMeasure(inputFile, CoreMetrics.LINES, squidFile.getDouble(SwiftMetric.LINES));
         context.saveMeasure(inputFile, CoreMetrics.NCLOC, squidFile.getDouble(SwiftMetric.LINES_OF_CODE));
@@ -133,40 +124,44 @@ public class SwiftSquidSensor implements Sensor {
         context.saveMeasure(inputFile, CoreMetrics.STATEMENTS, squidFile.getDouble(SwiftMetric.STATEMENTS));
         //context.saveMeasure(inputFile, CoreMetrics.COMPLEXITY, squidFile.getDouble(SwiftMetric.COMPLEXITY));
         context.saveMeasure(inputFile, CoreMetrics.COMMENT_LINES, squidFile.getDouble(SwiftMetric.COMMENT_LINES));
-
     }
 
     private void saveIssues(InputFile inputFile, SourceFile squidFile) {
-
         Collection<CheckMessage> messages = squidFile.getCheckMessages();
+        FileReader fileReader = null;
 
-        Resource resource = context.getResource(org.sonar.api.resources.File.fromIOFile(inputFile.file(), project));
+        try {
+            fileReader = new FileReader(inputFile.file());
+            final InputFile defaultInputFile = new DefaultInputFile(SwiftPlugin.PROPERTY_PREFIX, inputFile.relativePath());
 
-        if (messages != null && resource != null) {
-            for (CheckMessage message : messages) {
-                RuleKey ruleKey = checks.ruleKey((SquidCheck<SwiftGrammar>) message.getCheck());
-                Issuable issuable = resourcePerspectives.as(Issuable.class, resource);
+            if (messages != null && defaultInputFile != null) {
+                for (CheckMessage message : messages) {
+                    RuleKey ruleKey = checks.ruleKey((SquidCheck<SwiftGrammar>) message.getCheck());
+                    Issuable issuable = resourcePerspectives.as(Issuable.class, defaultInputFile);
 
-                if (issuable != null) {
-                    Issuable.IssueBuilder issueBuilder = issuable.newIssueBuilder()
-                            .ruleKey(ruleKey)
-                            .line(message.getLine())
-                            .message(message.getText(Locale.ENGLISH));
+                    if (issuable != null) {
+                        Issuable.IssueBuilder issueBuilder = issuable.newIssueBuilder()
+                                .ruleKey(ruleKey)
+                                .line(message.getLine())
+                                .message(message.getText(Locale.ENGLISH));
 
-                    if (message.getCost() != null) {
-                        issueBuilder.effortToFix(message.getCost());
+                        if (message.getCost() != null) {
+                            issueBuilder.effortToFix(message.getCost());
+                        }
+
+                        issuable.addIssue(issueBuilder.build());
                     }
-
-                    issuable.addIssue(issueBuilder.build());
                 }
             }
+        } catch (FileNotFoundException e) {
+            LOGGER.error("Failed to parse input file", e);
+        } finally {
+            IOUtils.closeQuietly(fileReader);
         }
     }
 
-
     @Override
     public String toString() {
-
         return getClass().getSimpleName();
     }
 }

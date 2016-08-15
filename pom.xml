@@ -2,166 +2,191 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+  <modelVersion>4.0.0</modelVersion>
 
-    <repositories>
-        <repository>
-            <id>sonar</id>
-            <url>http://repository.sonarsource.org/content/repositories/sonar</url>
-        </repository>
-    </repositories>
+  <repositories>
+    <repository>
+      <id>sonar</id>
+      <url>http://repository.sonarsource.org/content/repositories/sonar</url>
+    </repository>
+  </repositories>
 
-    <pluginRepositories>
-        <pluginRepository>
-            <id>sonar</id>
-            <url>http://repository.sonarsource.org/content/repositories/sonar</url>
-        </pluginRepository>
-    </pluginRepositories>
+  <pluginRepositories>
+    <pluginRepository>
+      <id>sonar</id>
+      <url>http://repository.sonarsource.org/content/repositories/sonar</url>
+    </pluginRepository>
+  </pluginRepositories>
 
-    <parent>
-        <groupId>org.codehaus.sonar-plugins</groupId>
-        <artifactId>parent</artifactId>
-        <version>18</version>
-    </parent>
+  <parent>
+    <groupId>org.codehaus.sonar-plugins</groupId>
+    <artifactId>parent</artifactId>
+    <version>19</version>
+  </parent>
 
-    <groupId>com.backelite.sonarqube</groupId>
-    <artifactId>backelite-sonar-swift-plugin</artifactId>
-    <version>0.2.3-SNAPSHOT</version>
+  <groupId>com.backelite.sonarqube</groupId>
+  <artifactId>backelite-sonar-swift-plugin</artifactId>
+  <version>0.2.4-patched</version>
 
-    <packaging>sonar-plugin</packaging>
+  <packaging>sonar-plugin</packaging>
 
-    <name>Swift SonarQube Plugin</name>
-    <description>Enables analysis of Swift projects into SonarQube.</description>
+  <name>Swift SonarQube Plugin</name>
+  <description>Enables analysis of Swift projects into SonarQube.</description>
+  <url>https://github.com/Backelite/sonar-swift</url>
+
+  <inceptionYear>2015</inceptionYear>
+  <organization>
+    <name>Backelite</name>
+  </organization>
+  <licenses>
+    <license>
+      <name>GNU LGPL 3</name>
+      <url>http://www.gnu.org/licenses/lgpl.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>zippy1978</id>
+      <name>Gilles Grousset</name>
+      <organization>Backelite</organization>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:git@github.com:Backelite/sonar-swift.git</connection>
+    <developerConnection>scm:git:git@github.com:Backelite/sonar-swift.git</developerConnection>
     <url>https://github.com/Backelite/sonar-swift</url>
+  </scm>
 
+  <properties>
+    <license.owner>Backelite</license.owner>
+    <license.title>SonarQube Swift Plugin</license.title>
 
-    <inceptionYear>2015</inceptionYear>
-    <organization>
-        <name>Backelite</name>
-    </organization>
-    <licenses>
-        <license>
-            <name>GNU LGPL 3</name>
-            <url>http://www.gnu.org/licenses/lgpl.txt</url>
-            <distribution>repo</distribution>
-        </license>
-    </licenses>
+    <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
 
-    <developers>
-        <developer>
-            <id>zippy1978</id>
-            <name>Gilles Grousset</name>
-            <organization>Backelite</organization>
-        </developer>
-    </developers>
+    <sonar.version>6.0</sonar.version>
+    <sslr.version>1.20</sslr.version>
 
-    <scm>
-        <connection>scm:git:git@github.com:Backelite/sonar-swift.git</connection>
-        <developerConnection>scm:git:git@github.com:Backelite/sonar-swift.git</developerConnection>
-        <url>https://github.com/Backelite/sonar-swift</url>
-    </scm>
+    <!-- Configuration for sonar-packaging-maven-plugin -->
+    <sonar.pluginClass>org.sonar.plugins.swift.SwiftPlugin</sonar.pluginClass>
+    <sonar.pluginName>Swift (Backelite)</sonar.pluginName>
+  </properties>
 
-    <properties>
-        <license.owner>Backelite</license.owner>
-        <license.title>SonarQube Swift Plugin</license.title>
+  <dependencies>
+    <dependency>
+      <groupId>org.sonarsource.sonarqube</groupId>
+      <artifactId>sonar-plugin-api</artifactId>
+      <version>${sonar.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.sonarsource.sonarqube</groupId>
+      <artifactId>sonar-testing-harness</artifactId>
+      <version>${sonar.version}</version>
+    </dependency>
 
-        <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
+    <dependency>
+      <groupId>org.codehaus.sonar.sslr</groupId>
+      <artifactId>sslr-core</artifactId>
+      <version>${sslr.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.sonar.sslr</groupId>
+      <artifactId>sslr-xpath</artifactId>
+      <version>${sslr.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.sonar.sslr</groupId>
+      <artifactId>sslr-toolkit</artifactId>
+      <version>${sslr.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.sonar.sslr</groupId>
+      <artifactId>sslr-testing-harness</artifactId>
+      <version>${sslr.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.sonarsource.sslr-squid-bridge</groupId>
+      <artifactId>sslr-squid-bridge</artifactId>
+      <version>2.6.1</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.codehaus.sonar</groupId>
+          <artifactId>sonar-plugin-api</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.21</version>
+    </dependency>
+    <dependency>
+      <groupId>ant</groupId>
+      <artifactId>ant</artifactId>
+      <version>1.6</version>
+    </dependency>
 
-        <sonar.version>4.3</sonar.version>
-        <sslr.version>1.20</sslr.version>
+    <dependency>
+      <groupId>com.googlecode.json-simple</groupId>
+      <artifactId>json-simple</artifactId>
+      <version>1.1.1</version>
+    </dependency>
 
-        <!-- Configuration for sonar-packaging-maven-plugin -->
-        <sonar.pluginClass>org.sonar.plugins.swift.SwiftPlugin</sonar.pluginClass>
-        <sonar.pluginName>Swift (Backelite)</sonar.pluginName>
-
-    </properties>
-
-    <dependencies>
-        <dependency>
-            <groupId>org.codehaus.sonar</groupId>
-            <artifactId>sonar-plugin-api</artifactId>
-            <version>${sonar.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.sonar</groupId>
-            <artifactId>sonar-testing-harness</artifactId>
-            <version>${sonar.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.sonar</groupId>
-            <artifactId>sonar-deprecated</artifactId>
-            <version>${sonar.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.codehaus.sonar.sslr</groupId>
-            <artifactId>sslr-core</artifactId>
-            <version>${sslr.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.sonar.sslr</groupId>
-            <artifactId>sslr-xpath</artifactId>
-            <version>${sslr.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.sonar.sslr</groupId>
-            <artifactId>sslr-toolkit</artifactId>
-            <version>${sslr.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.sonar.sslr</groupId>
-            <artifactId>sslr-testing-harness</artifactId>
-            <version>${sslr.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.sonar.sslr-squid-bridge</groupId>
-            <artifactId>sslr-squid-bridge</artifactId>
-            <version>2.5.3</version>
-        </dependency>
-        <dependency>
-            <groupId>ant</groupId>
-            <artifactId>ant</artifactId>
-            <version>1.6</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.googlecode.json-simple</groupId>
-            <artifactId>json-simple</artifactId>
-            <version>1.1.1</version>
-        </dependency>
-
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.10</version>
-        </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-all</artifactId>
-            <version>1.9.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.hamcrest</groupId>
-            <artifactId>hamcrest-all</artifactId>
-            <version>1.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.easytesting</groupId>
-            <artifactId>fest-assert</artifactId>
-            <version>1.4</version>
-        </dependency>
-        <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-            <version>0.9.30</version>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.sonar.plugins</groupId>
-            <artifactId>sonar-surefire-plugin</artifactId>
-            <version>2.7</version>
-        </dependency>
-
-    </dependencies>
-
-
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.10</version>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-all</artifactId>
+      <version>1.9.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest-all</artifactId>
+      <version>1.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.easytesting</groupId>
+      <artifactId>fest-assert</artifactId>
+      <version>1.4</version>
+    </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.1.3</version>
+      <scope>provided</scope>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.sonar.plugins</groupId>
+      <artifactId>sonar-surefire-plugin</artifactId>
+      <version>2.7</version>
+    </dependency>
+    <!-- necessary for the plugin validation - set to provided to suppress the export -->
+    <dependency>
+      <groupId>org.codehaus.sonar</groupId>
+      <artifactId>sonar-plugin-api</artifactId>
+      <version>5.1</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>2.19.1</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
 </project>
