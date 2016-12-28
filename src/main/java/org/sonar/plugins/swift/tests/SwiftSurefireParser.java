@@ -164,7 +164,7 @@ class SwiftSurefireParser {
             }
         }
         testCaseDetails.append("</tests-details>");
-        context.saveMeasure(resource, new Measure(CoreMetrics.TEST_DATA, testCaseDetails.toString()));
+        //context.saveMeasure(resource, new Measure(CoreMetrics.TEST_DATA, testCaseDetails.toString()));
     }
 
     private void saveClassMeasure(@Nonnull Resource resource, Metric metric, double value) {
